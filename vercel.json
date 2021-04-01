@@ -3,6 +3,12 @@
     "api/**/*.[jt]s": { "runtime": "vercel-deno@0.7.9" }
   },
   "redirects": [
-    { "source": "/graphql", "destination": "/api/graphql", "permanent": true }
+    { "source": "/graphql", "destination": "/api/graphql", "permanent": true },
+    {
+      "source": "/playground",
+      "destination": "/api/graphql",
+      "permanent": true
+    },
+    { "source": "/sdl", "destination": "/api/sdl", "permanent": true }
   ]
 }
