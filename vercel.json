@@ -9,6 +9,11 @@
       "destination": "/api/graphql",
       "permanent": true
     },
-    { "source": "/sdl", "destination": "/api/sdl", "permanent": true }
+    { "source": "/sdl", "destination": "/api/sdl", "permanent": true },
+    {
+      "source": "/subscriptions",
+      "destination": "/api/graphql",
+      "permanent": true
+    }
   ]
 }
