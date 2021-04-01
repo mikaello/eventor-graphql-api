@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/**/*.[jt]s": { "runtime": "vercel-deno@0.7.9" }
+  },
+  "redirects": [
+    { "source": "/graphql", "destination": "/api/graphql", "permanent": true }
+  ]
+}
