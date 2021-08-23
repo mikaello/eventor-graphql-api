@@ -10,6 +10,8 @@ section).
 
 Eventor is an event organisation platform for [orienteering](https://en.wikipedia.org/wiki/Orienteering) events, and the Eventor platform has a great REST API for fetching all kinds of things related to the orienteering events hosted on their platform.
 
+Data types on the Eventor platform (and what is communicated by their REST API) are [documented in XSD documents](https://github.com/mikaello/iof-orienteering-data-schemas).
+
 ## Technically
 
 This is a Deno (TypeScript) project, running as [Vercel Serverless Functions](https://vercel.com/docs/serverless-functions/introduction).
@@ -20,4 +22,4 @@ For the GraphQL implementation [deno-libs/gql](https://github.com/deno-libs/gql)
 
 You need the Vercel CLI, check out how to install at https://vercel.com/cli.
 
-You can then start the API by running `vencel dev` in your terminal, and access localhost at `http://localhost:3000/api/graphql`.
+You can then start the API by running `vercel dev` in your terminal, and access localhost at `http://localhost:3000/api/graphql`.
