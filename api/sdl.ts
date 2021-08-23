@@ -1,4 +1,4 @@
-import { ServerRequest } from "https://deno.land/std@0.91.0/http/server.ts";
+import { ServerRequest } from "https://deno.land/std@0.105.0/http/server.ts";
 import graphQLSchema from "../schema.ts";
 
 export default async (req: ServerRequest) => {

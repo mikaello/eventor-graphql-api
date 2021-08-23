@@ -1,4 +1,4 @@
-import { gql } from "https://deno.land/x/graphql_tag/mod.ts";
+import { gql } from "https://deno.land/x/graphql_tag@0.0.1/mod.ts";
 
 export default gql`
   type Query {

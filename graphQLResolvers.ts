@@ -1,6 +1,6 @@
-import { IResolvers } from "https://deno.land/x/graphql_tools@0.0.0/utils/interfaces.ts";
+import { IResolvers } from "https://deno.land/x/graphql_tools@0.0.2/utils/interfaces.ts";
 import { GraphQLResolveInfo } from "https://raw.githubusercontent.com/adelsz/graphql-deno/v15.0.0/mod.ts";
-import { ServerRequest } from "https://deno.land/std@0.91.0/http/server.ts";
+import { ServerRequest } from "https://deno.land/std@0.105.0/http/server.ts";
 
 type ContextValue = {
   request: ServerRequest;
