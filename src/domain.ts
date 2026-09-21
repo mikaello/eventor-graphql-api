@@ -1,7 +1,6 @@
 import {
   attribute,
   dateTime,
-  integer,
   list,
   parseXml,
   record,
@@ -11,6 +10,7 @@ import {
   toJson,
   type XmlRecord,
 } from "./xml.js";
+import { eventorParsers } from "./rescript-eventor.js";
 
 export type EventClassification = "CHAMPIONSHIP" | "NATIONAL" | "REGIONAL" | "NEARBY" | "CLUB";
 export type Sex = "MALE" | "FEMALE";
@@ -205,51 +205,6 @@ export function parseEntryNode(node: XmlRecord): Entry {
   };
 }
 
-export function parseEventClassNode(node: XmlRecord): EventClass {
-  return {
-    id: id(text(node.EventClassId)),
-    name: text(node.Name) ?? "",
-    shortName: text(node.ClassShortName),
-    lowAge: integer(node["@lowAge"]),
-    highAge: integer(node["@highAge"]),
-    sex: attribute(node, "sex"),
-    numberOfEntries: integer(node["@numberOfEntries"]),
-  };
-}
-
-function parseDocumentNode(node: XmlRecord): EventDocument {
-  return {
-    id: attribute(node, "id") ?? "",
-    referenceId: attribute(node, "referenceId"),
-    name: attribute(node, "name"),
-    url: attribute(node, "url"),
-    modifyDate: attribute(node, "modifyDate"),
-    documentType: attribute(node, "type"),
-  };
-}
-
-function parseEntryFeeNode(node: XmlRecord): EntryFee {
-  const amount = record(node.Amount);
-  return {
-    id: text(node.EntryFeeId) ?? "",
-    name: text(node.Name),
-    amount: text(node.Amount),
-    currency: attribute(amount, "currency"),
-    taxIncluded: attribute(node, "taxIncluded"),
-    entryFeeType: attribute(node, "entryFeeType"),
-    feeType: attribute(node, "type"),
-    validToDate: dateTime(node.ValidToDate),
-  };
-}
-
-function parseCompetitorCountNode(node: XmlRecord): CompetitorCount {
-  return {
-    eventId: attribute(node, "eventId") ?? "",
-    numberOfEntries: integer(node["@numberOfEntries"]),
-    numberOfStarts: integer(node["@numberOfStarts"]),
-  };
-}
-
 export function parseEvents(xml: string): Event[] {
   return records(root(parseXml(xml), "EventList").Event).map(parseEventNode);
 }
@@ -259,15 +214,31 @@ export function parseEvent(xml: string): Event {
 }
 
 export function parseOrganisations(xml: string): Organisation[] {
-  return records(root(parseXml(xml), "OrganisationList").Organisation).map(parseOrganisationNode);
+  return eventorParsers.organisations(xml).map((organisation) => ({
+    id: organisation.id,
+    name: organisation.name,
+    shortName: organisation.shortName ?? null,
+    typeId: organisation.typeId ?? null,
+    countryId: organisation.countryId ?? null,
+  }));
 }
 
 export function parseOrganisation(xml: string): Organisation {
-  return parseOrganisationNode(root(parseXml(xml), "Organisation"));
+  const organisation = parseOrganisations(xml)[0];
+  if (organisation === undefined) throw new Error("No Organisation element found");
+  return organisation;
 }
 
 export function parsePersons(xml: string): Person[] {
-  return records(root(parseXml(xml), "PersonList").Person).map(parsePersonNode);
+  return eventorParsers.persons(xml).map((person) => ({
+    id: person.id,
+    firstName: person.firstName,
+    lastName: person.lastName,
+    birthDate: person.birthDate ?? null,
+    sex: person.sex === "Male" ? "MALE" : person.sex === "Female" ? "FEMALE" : null,
+    nationalityId: person.nationalityId ?? null,
+    organisationId: person.organisationId ?? null,
+  }));
 }
 
 export function parseCompetitors(xml: string): Competitor[] {
@@ -283,21 +254,47 @@ export function parseEntries(xml: string): Entry[] {
 }
 
 export function parseEventClasses(xml: string): EventClass[] {
-  return records(root(parseXml(xml), "EventClassList").EventClass).map(parseEventClassNode);
+  return eventorParsers.eventClasses(xml).map((eventClass) => ({
+    id: eventClass.id,
+    name: eventClass.name,
+    shortName: eventClass.shortName ?? null,
+    lowAge: eventClass.lowAge ?? null,
+    highAge: eventClass.highAge ?? null,
+    sex: eventClass.sex ?? null,
+    numberOfEntries: eventClass.numberOfEntries ?? null,
+  }));
 }
 
 export function parseDocuments(xml: string): EventDocument[] {
-  return records(root(parseXml(xml), "DocumentList").Document).map(parseDocumentNode);
+  return eventorParsers.documents(xml).map((document) => ({
+    id: document.id,
+    referenceId: document.referenceId ?? null,
+    name: document.name ?? null,
+    url: document.url ?? null,
+    modifyDate: document.modifyDate ?? null,
+    documentType: document.documentType ?? null,
+  }));
 }
 
 export function parseEntryFees(xml: string): EntryFee[] {
-  return records(root(parseXml(xml), "EntryFeeList").EntryFee).map(parseEntryFeeNode);
+  return eventorParsers.entryFees(xml).map((fee) => ({
+    id: fee.id,
+    name: fee.name ?? null,
+    amount: fee.amount ?? null,
+    currency: fee.currency ?? null,
+    taxIncluded: fee.taxIncluded ?? null,
+    entryFeeType: fee.entryFeeType ?? null,
+    feeType: fee.feeType ?? null,
+    validToDate: fee.validToDate ?? null,
+  }));
 }
 
 export function parseCompetitorCounts(xml: string): CompetitorCount[] {
-  return records(root(parseXml(xml), "CompetitorCountList").CompetitorCount).map(
-    parseCompetitorCountNode,
-  );
+  return eventorParsers.competitorCounts(xml).map((count) => ({
+    eventId: count.eventId,
+    numberOfEntries: count.numberOfEntries ?? null,
+    numberOfStarts: count.numberOfStarts ?? null,
+  }));
 }
 
 export function parseDocument(xml: string): unknown {

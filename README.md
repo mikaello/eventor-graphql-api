@@ -12,7 +12,9 @@ Its REST API exposes events, entries, start lists, results, organisations, peopl
 
 ## Architecture
 
-The GraphQL service owns XML parsing because it is the layer that understands GraphQL field names, nullability, lists, and relationships.
+The service uses [rescript-eventor](https://github.com/mikaello/rescript-eventor) for typed parsing of compatible native Eventor responses.
+
+The GraphQL layer applies schema-specific normalization and retains lossless parsing for raw or richer XML structures.
 
 By default, this service calls the Norwegian Eventor API directly.
 
