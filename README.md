@@ -19,7 +19,9 @@ GraphQL client -> eventor-graphql-api -> eventor-proxy -> Eventor REST API
 
 The old [eventor-api-json-types](https://github.com/mikaello/eventor-api-json-types) project is not used because it only parses part of `Competitor` and has been superseded by the maintained parser work in [rescript-eventor](https://github.com/mikaello/rescript-eventor) and [rescript-iof-xml](https://github.com/mikaello/rescript-iof-xml).
 
-This server has its own small TypeScript adapter because the published ReScript packages are not currently directly importable as a Node.js runtime dependency.
+This server has its own small adapter for native Eventor XML because `rescript-eventor` is currently published as a ReScript-source package without a public JavaScript or TypeScript entry point.
+
+`rescript-iof-xml` does provide tested TypeScript subpath exports, but it covers the standard IOF document variants rather than Eventor's native XML responses.
 
 ## API coverage
 
