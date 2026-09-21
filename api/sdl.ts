@@ -1,6 +1,9 @@
-import { ServerRequest } from "https://deno.land/std@0.105.0/http/server.ts";
-import graphQLSchema from "../schema.ts";
+import { typeDefs } from "../src/schema.js";
 
-export default async (req: ServerRequest) => {
-  await req.respond({ body: graphQLSchema.loc?.source.body ?? "" });
+export default {
+  fetch(): Response {
+    return new Response(typeDefs, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  },
 };

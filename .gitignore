@@ -3,10 +3,11 @@
 /.idea/
 /.vscode/
 
-# Files that help ensure VSCode can work but we don't want checked into the
-# repo
 /node_modules
-/tsconfig.json
+/dist
+/coverage
+.env
+.env.local
 
 # MacOS generated files
 .DS_Store
