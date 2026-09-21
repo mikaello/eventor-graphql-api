@@ -50,7 +50,28 @@ test("serves typed GraphQL data and nested Eventor relationships", async () => {
   assert.equal(urls.length, 2);
 });
 
-test("rejects upstream GraphQL queries without an Eventor API key", async () => {
+test("allows schema introspection without an Eventor API key", async () => {
+  const yoga = createApp({
+    baseUrl: "https://proxy.example/api",
+    fetch: async () => new Response(),
+    logging: false,
+  });
+  const response = await yoga.fetch("http://localhost/api/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "{ __schema { queryType { name } } }" }),
+  });
+  const body = (await response.json()) as {
+    data?: { __schema: { queryType: { name: string } } };
+    errors?: Array<{ message: string }>;
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(body.errors, undefined);
+  assert.equal(body.data?.__schema.queryType.name, "Query");
+});
+
+test("rejects upstream fields without an Eventor API key", async () => {
   const yoga = createApp({
     baseUrl: "https://proxy.example/api",
     fetch: async () => new Response(),
@@ -63,6 +84,6 @@ test("rejects upstream GraphQL queries without an Eventor API key", async () => 
   });
   const body = (await response.json()) as { errors?: Array<{ message: string }> };
 
-  assert.equal(response.status, 500);
+  assert.equal(response.status, 200);
   assert.match(body.errors?.[0]?.message ?? "", /unexpected error|ApiKey/i);
 });

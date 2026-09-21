@@ -4,24 +4,26 @@ A working GraphQL facade for the [Eventor REST API](https://eventor.orientering.
 
 It exposes typed Eventor entities, nested relationships, GraphiQL, an SDL endpoint, request-local deduplication, and lossless JSON access to XML structures that do not yet have dedicated GraphQL types.
 
+## What is Eventor?
+
+Eventor is an event management platform for [orienteering](https://en.wikipedia.org/wiki/Orienteering) events.
+
+Its REST API exposes events, entries, start lists, results, organisations, people, and related race data as XML.
+
 ## Architecture
 
 The GraphQL service owns XML parsing because it is the layer that understands GraphQL field names, nullability, lists, and relationships.
 
-The optional [eventor-proxy](https://github.com/mikaello/eventor-proxy) stays byte-preserving and is responsible for shared response caching, CORS, cache controls, and observability.
+By default, this service calls the Norwegian Eventor API directly.
 
-Set `EVENTOR_BASE_URL` to the proxy's `/api` URL to enable shared caching without changing this application.
+To use the optional [eventor-proxy](https://github.com/mikaello/eventor-proxy), set `EVENTOR_BASE_URL` to the proxy's `/api` URL.
+
+The proxy is not bundled or required; it adds shared caching, CORS, cache controls, and observability while preserving the original XML response.
 
 ```text
 GraphQL client -> eventor-graphql-api -> eventor-proxy -> Eventor REST API
                      XML -> typed data      cached XML
 ```
-
-The old [eventor-api-json-types](https://github.com/mikaello/eventor-api-json-types) project is not used because it only parses part of `Competitor` and has been superseded by the maintained parser work in [rescript-eventor](https://github.com/mikaello/rescript-eventor) and [rescript-iof-xml](https://github.com/mikaello/rescript-iof-xml).
-
-This server has its own small adapter for native Eventor XML because `rescript-eventor` is currently published as a ReScript-source package without a public JavaScript or TypeScript entry point.
-
-`rescript-iof-xml` does provide tested TypeScript subpath exports, but it covers the standard IOF document variants rather than Eventor's native XML responses.
 
 ## API coverage
 

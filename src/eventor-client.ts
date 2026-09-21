@@ -26,7 +26,6 @@ export class EventorClient {
   readonly #requests = new Map<string, Promise<string>>();
 
   constructor(options: EventorClientOptions) {
-    if (options.apiKey.trim() === "") throw new Error("The ApiKey request header is required");
     this.#apiKey = options.apiKey;
     this.#baseUrl = new URL(options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`);
     this.#fetch = options.fetch ?? globalThis.fetch;
@@ -70,6 +69,7 @@ export class EventorClient {
   }
 
   async #request(url: URL, init: RequestInit): Promise<string> {
+    if (this.#apiKey.trim() === "") throw new Error("The ApiKey request header is required");
     const headers = new Headers(init.headers);
     headers.set("ApiKey", this.#apiKey);
     headers.set("Accept", "application/xml, text/xml;q=0.9");
