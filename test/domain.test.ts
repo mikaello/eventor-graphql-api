@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  parseDocument,
   parseEntries,
   parseEventClasses,
   parseEvents,
   parseOrganisation,
 } from "../src/domain.js";
+
+test("ignores the XML declaration when reporting a raw document root", () => {
+  const document = parseDocument(
+    '<?xml version="1.0" encoding="utf-8"?><ResultList><Event><Name>Race</Name></Event></ResultList>',
+  ) as { root: string };
+
+  assert.equal(document.root, "ResultList");
+});
 
 test("parses native Eventor events into stable GraphQL values", () => {
   const events = parseEvents(`

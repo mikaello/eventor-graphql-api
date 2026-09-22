@@ -299,7 +299,7 @@ export function parseCompetitorCounts(xml: string): CompetitorCount[] {
 
 export function parseDocument(xml: string): unknown {
   const document = parseXml(xml);
-  const [name, value] = Object.entries(document)[0] ?? [];
+  const [name, value] = Object.entries(document).find(([key]) => !key.startsWith("?")) ?? [];
   if (name === undefined || value === undefined) return { root: "", data: null, xml };
   return { root: name, data: toJson(value), xml };
 }
