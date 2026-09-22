@@ -17,18 +17,26 @@ export interface EventorClientOptions {
   apiKey: string;
   baseUrl: string;
   fetch?: typeof globalThis.fetch;
+  maxConcurrentGets?: number;
 }
 
 export class EventorClient {
   readonly #apiKey: string;
   readonly #baseUrl: URL;
   readonly #fetch: typeof globalThis.fetch;
+  readonly #maxConcurrentGets: number;
   readonly #requests = new Map<string, Promise<string>>();
+  readonly #getQueue: Array<() => void> = [];
+  #activeGets = 0;
 
   constructor(options: EventorClientOptions) {
     this.#apiKey = options.apiKey;
     this.#baseUrl = new URL(options.baseUrl.endsWith("/") ? options.baseUrl : `${options.baseUrl}/`);
     this.#fetch = options.fetch ?? globalThis.fetch;
+    this.#maxConcurrentGets = options.maxConcurrentGets ?? 8;
+    if (!Number.isInteger(this.#maxConcurrentGets) || this.#maxConcurrentGets < 1) {
+      throw new Error("maxConcurrentGets must be a positive integer");
+    }
   }
 
   get(path: string, query: Query = {}): Promise<string> {
@@ -37,7 +45,7 @@ export class EventorClient {
     const existing = this.#requests.get(key);
     if (existing !== undefined) return existing;
 
-    const request = this.#request(url, { method: "GET" });
+    const request = this.#scheduleGet(() => this.#request(url, { method: "GET" }));
     this.#requests.set(key, request);
     return request;
   }
@@ -66,6 +74,30 @@ export class EventorClient {
       url.searchParams.set(name, Array.isArray(value) ? value.join(",") : String(value));
     }
     return url;
+  }
+
+  #scheduleGet(request: () => Promise<string>): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const run = () => {
+        this.#activeGets += 1;
+        void request()
+          .then(resolve, reject)
+          .finally(() => {
+            this.#activeGets -= 1;
+            this.#drainGetQueue();
+          });
+      };
+      this.#getQueue.push(run);
+      this.#drainGetQueue();
+    });
+  }
+
+  #drainGetQueue(): void {
+    while (this.#activeGets < this.#maxConcurrentGets) {
+      const run = this.#getQueue.shift();
+      if (run === undefined) return;
+      run();
+    }
   }
 
   async #request(url: URL, init: RequestInit): Promise<string> {

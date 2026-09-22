@@ -116,3 +116,171 @@ test("rejects upstream fields without an Eventor API key", async () => {
   assert.equal(response.status, 200);
   assert.match(body.errors?.[0]?.message ?? "", /unexpected error|ApiKey/i);
 });
+
+test("traverses event entries, people, starts, and related events in one operation", async () => {
+  const urls: URL[] = [];
+  const fetch = async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input);
+    urls.push(url);
+    if (url.pathname.endsWith("/event/7")) {
+      return new Response("<Event><EventId>7</EventId><Name>Forest race</Name></Event>");
+    }
+    if (url.pathname.endsWith("/entries")) {
+      return new Response(`
+        <EntryList>
+          <Entry><EntryId>10</EntryId><Competitor><CompetitorId>20</CompetitorId>
+            <Person><PersonId>30</PersonId><PersonName><Given>Ola</Given><Family>Nordmann</Family></PersonName></Person>
+          </Competitor><Event><EventId>7</EventId><Name>Forest race</Name></Event></Entry>
+          <Entry><EntryId>11</EntryId><Competitor><CompetitorId>21</CompetitorId>
+            <Person><PersonId>30</PersonId><PersonName><Given>Ola</Given><Family>Nordmann</Family></PersonName></Person>
+          </Competitor><Event><EventId>7</EventId><Name>Forest race</Name></Event></Entry>
+        </EntryList>
+      `);
+    }
+    if (url.pathname.endsWith("/starts/person")) {
+      return new Response(`
+        <StartListList>
+          <StartList><Event><EventId>7</EventId><Name>Forest race</Name></Event>
+            <ClassStart><PersonStart><Person><PersonId>30</PersonId></Person>
+              <Start><StartTime><Date>2026-09-20</Date><Clock>10:00:00</Clock></StartTime></Start>
+            </PersonStart></ClassStart>
+          </StartList>
+          <StartList><Event><EventId>8</EventId><Name>City sprint</Name></Event>
+            <ClassStart><PersonStart><Person><PersonId>30</PersonId></Person>
+              <Start><StartTime><Date>2026-09-21</Date><Clock>12:00:00</Clock></StartTime></Start>
+            </PersonStart></ClassStart>
+          </StartList>
+        </StartListList>
+      `);
+    }
+    if (url.pathname.endsWith("/events") && url.searchParams.get("eventIds") === "8") {
+      return new Response("<EventList><Event><EventId>8</EventId><Name>City sprint</Name></Event></EventList>");
+    }
+    return new Response(`<Error>Unexpected URL: ${url.toString()}</Error>`, { status: 404 });
+  };
+  const yoga = createApp({ baseUrl: "https://proxy.example/api", fetch, logging: false });
+  const response = await yoga.fetch("http://localhost/api/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: "12345678901234567890123456789012",
+    },
+    body: JSON.stringify({
+      query: `{
+        event(id: "7") {
+          entries {
+            id
+            person {
+              id
+              startRecords {
+                startTime
+                event { id name }
+              }
+            }
+          }
+        }
+      }`,
+    }),
+  });
+  const body = (await response.json()) as {
+    data?: { event: { entries: unknown[] } };
+    errors?: Array<{ message: string }>;
+  };
+
+  assert.equal(body.errors, undefined);
+  assert.equal(body.data?.event.entries.length, 2);
+  assert.deepEqual(body.data?.event.entries[0], {
+    id: "10",
+    person: {
+      id: "30",
+      startRecords: [
+        {
+          startTime: "2026-09-20T10:00:00",
+          event: { id: "7", name: "Forest race" },
+        },
+        {
+          startTime: "2026-09-21T12:00:00",
+          event: { id: "8", name: "City sprint" },
+        },
+      ],
+    },
+  });
+  assert.equal(urls.filter((url) => url.pathname.endsWith("/starts/person")).length, 1);
+  assert.equal(urls.filter((url) => url.pathname.endsWith("/events")).length, 1);
+});
+
+test("batches nested entries and competitor counts across parent events", async () => {
+  const urls: URL[] = [];
+  const fetch = async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input);
+    urls.push(url);
+    if (url.pathname.endsWith("/events")) {
+      return new Response(`
+        <EventList>
+          <Event><EventId>7</EventId><Name>Forest race</Name></Event>
+          <Event><EventId>8</EventId><Name>City sprint</Name></Event>
+        </EventList>
+      `);
+    }
+    if (url.pathname.endsWith("/entries")) {
+      return new Response(`
+        <EntryList>
+          <Entry><EntryId>10</EntryId><Competitor><CompetitorId>20</CompetitorId></Competitor><EventId>7</EventId></Entry>
+          <Entry><EntryId>11</EntryId><Competitor><CompetitorId>21</CompetitorId></Competitor><EventId>8</EventId></Entry>
+        </EntryList>
+      `);
+    }
+    if (url.pathname.endsWith("/competitorcount")) {
+      return new Response(`
+        <CompetitorCountList>
+          <CompetitorCount eventId="7" numberOfEntries="4" numberOfStarts="3" />
+          <CompetitorCount eventId="8" numberOfEntries="6" numberOfStarts="5" />
+        </CompetitorCountList>
+      `);
+    }
+    return new Response(`<Error>Unexpected URL: ${url.toString()}</Error>`, { status: 404 });
+  };
+  const yoga = createApp({ baseUrl: "https://proxy.example/api", fetch, logging: false });
+  const response = await yoga.fetch("http://localhost/api/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: "12345678901234567890123456789012",
+    },
+    body: JSON.stringify({
+      query: `{
+        events {
+          id
+          entries { id }
+          competitorCount(organisationIds: ["273"]) {
+            numberOfEntries
+            event { id }
+          }
+        }
+      }`,
+    }),
+  });
+  const body = (await response.json()) as { data?: unknown; errors?: Array<{ message: string }> };
+
+  assert.equal(body.errors, undefined);
+  assert.deepEqual(body.data, {
+    events: [
+      {
+        id: "7",
+        entries: [{ id: "10" }],
+        competitorCount: { numberOfEntries: 4, event: { id: "7" } },
+      },
+      {
+        id: "8",
+        entries: [{ id: "11" }],
+        competitorCount: { numberOfEntries: 6, event: { id: "8" } },
+      },
+    ],
+  });
+  const entriesRequests = urls.filter((url) => url.pathname.endsWith("/entries"));
+  const countRequests = urls.filter((url) => url.pathname.endsWith("/competitorcount"));
+  assert.equal(entriesRequests.length, 1);
+  assert.equal(entriesRequests[0]?.searchParams.get("eventIds"), "7,8");
+  assert.equal(countRequests.length, 1);
+  assert.equal(countRequests[0]?.searchParams.get("eventIds"), "7,8");
+});

@@ -1,5 +1,6 @@
 import { createSchema, createYoga } from "graphql-yoga";
 import { EventorClient } from "./eventor-client.js";
+import { createRequestLoaders } from "./loaders.js";
 import { resolvers, typeDefs, type GraphQLContext } from "./schema.js";
 
 export interface AppOptions {
@@ -8,6 +9,7 @@ export interface AppOptions {
   fetch?: typeof globalThis.fetch;
   graphqlEndpoint?: string;
   logging?: boolean;
+  maxConcurrentGets?: number;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -19,12 +21,16 @@ export function createApp(options: AppOptions = {}) {
     graphqlEndpoint: options.graphqlEndpoint ?? "/api/graphql",
     graphiql: true,
     logging: options.logging ?? true,
-    context: ({ request }) => ({
-      client: new EventorClient({
+    context: ({ request }) => {
+      const client = new EventorClient({
         apiKey: request.headers.get("ApiKey") ?? options.defaultApiKey ?? process.env.EVENTOR_API_KEY ?? "",
         baseUrl,
         ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-      }),
-    }),
+        ...(options.maxConcurrentGets === undefined
+          ? {}
+          : { maxConcurrentGets: options.maxConcurrentGets }),
+      });
+      return { client, loaders: createRequestLoaders(client) };
+    },
   });
 }

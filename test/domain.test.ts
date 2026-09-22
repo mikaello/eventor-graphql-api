@@ -4,8 +4,10 @@ import {
   parseDocument,
   parseEntries,
   parseEventClasses,
+  parseEventResults,
   parseEvents,
   parseOrganisation,
+  parsePersonEventStarts,
 } from "../src/domain.js";
 
 test("ignores the XML declaration when reporting a raw document root", () => {
@@ -14,6 +16,32 @@ test("ignores the XML declaration when reporting a raw document root", () => {
   ) as { root: string };
 
   assert.equal(document.root, "ResultList");
+});
+
+test("parses typed result relationships", () => {
+  const results = parseEventResults(`
+    <ResultList>
+      <Event><EventId>70</EventId><Name>Race</Name></Event>
+      <ClassResult>
+        <EventClass><EventClassId>60</EventClassId><Name>H21</Name></EventClass>
+        <PersonResult>
+          <Person><PersonId>30</PersonId><PersonName><Given>Ola</Given><Family>Nordmann</Family></PersonName></Person>
+          <Organisation><OrganisationId>40</OrganisationId><Name>Example OK</Name></Organisation>
+          <Result><Time>00:35:42</Time></Result>
+        </PersonResult>
+      </ClassResult>
+    </ResultList>
+  `);
+
+  assert.equal(results[0]?.eventId, "70");
+  assert.equal(results[0]?.eventClassId, "60");
+  assert.equal(results[0]?.person?.id, "30");
+  assert.equal(results[0]?.organisation?.id, "40");
+  assert.equal(results[0]?.time, "00:35:42");
+});
+
+test("parses an empty result-list collection", () => {
+  assert.deepEqual(parseEventResults("<ResultListList />"), []);
 });
 
 test("parses native Eventor events into stable GraphQL values", () => {
@@ -108,4 +136,38 @@ test("parses expanded entry relationships", () => {
   assert.equal(entries[0]?.organisation?.id, "40");
   assert.equal(entries[0]?.eventId, "70");
   assert.equal(entries[0]?.cardId, "50");
+  assert.equal(entries[0]?.personId, "30");
+  assert.equal(entries[0]?.organisationId, "40");
+});
+
+test("parses typed person starts with event relationships", () => {
+  const starts = parsePersonEventStarts(
+    `
+      <StartListList>
+        <StartList>
+          <Event><EventId>70</EventId><Name>Race</Name></Event>
+          <ClassStart>
+            <PersonStart>
+              <Person><PersonId>30</PersonId></Person>
+              <Start><StartTime><Date>2026-05-12</Date><Clock>17:30:00</Clock></StartTime></Start>
+            </PersonStart>
+          </ClassStart>
+        </StartList>
+      </StartListList>
+    `,
+    {
+      id: "30",
+      firstName: "Ola",
+      lastName: "Nordmann",
+      birthDate: null,
+      sex: null,
+      nationalityId: null,
+      organisationId: "40",
+    },
+  );
+
+  assert.equal(starts[0]?.eventId, "70");
+  assert.equal(starts[0]?.eventName, "Race");
+  assert.equal(starts[0]?.personId, "30");
+  assert.equal(starts[0]?.startTime, "2026-05-12T17:30:00");
 });

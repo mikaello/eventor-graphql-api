@@ -55,3 +55,25 @@ declare module "rescript-eventor/src/NativeCompetitorCount.res.mjs" {
     import("rescript-eventor/Eventor").NativeCompetitorCount[]
   >;
 }
+
+declare module "rescript-eventor/src/NativeStartList.res.mjs" {
+  export function parse(
+    xml: string,
+  ): import("rescript-eventor/Eventor").Result<
+    import("rescript-eventor/Eventor").NativeStartList[]
+  >;
+
+  export function parseFull(
+    xml: string,
+  ): import("rescript-eventor/Eventor").Result<
+    import("rescript-eventor/Eventor").NativeFullStartList
+  >;
+}
+
+declare module "rescript-eventor/src/NativeResultList.res.mjs" {
+  export function parse(
+    xml: string,
+  ): import("rescript-eventor/Eventor").Result<
+    import("rescript-eventor/Eventor").NativeResultList[]
+  >;
+}

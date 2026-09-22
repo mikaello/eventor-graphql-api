@@ -29,11 +29,13 @@ GraphQL client -> eventor-graphql-api -> eventor-proxy -> Eventor REST API
 
 ## API coverage
 
-Dedicated GraphQL types and queries cover events, organisations, persons, competitors, entries, event classes, entry fees, event documents, and competitor counts.
+Dedicated GraphQL types and queries cover events, organisations, persons, competitors, entries, event classes, entry fees, event documents, competitor counts, starts, and results.
 
-Event, organisation, and person fields provide useful nested traversal without putting IDs together in the client.
+Relationship fields reuse parent IDs so clients can traverse between these resources without assembling follow-up requests.
 
-Starts and results are returned as `XmlDocument` values so the complete Eventor response remains accessible while their large IOF schemas evolve.
+Request-scoped loaders batch multi-ID endpoints, deduplicate repeated reads, and bound concurrent upstream GET requests.
+
+The existing `XmlDocument` fields remain available for complete Eventor responses, while `startRecords` and `resultRecords` expose their commonly used relationships as GraphQL types.
 
 The `raw` query covers the IOF XML variants, activities, memberships, exports, WRS endpoints, and external login URLs through a fixed endpoint allowlist.
 
@@ -60,7 +62,39 @@ Copy `.env.example` if you want to change the upstream URL.
 EVENTOR_BASE_URL=https://your-eventor-proxy.example/api npm run dev
 ```
 
-## Example
+## Connected graph example
+
+```graphql
+query EventEntrantsAndTheirStarts {
+  event(id: "19379") {
+    entries {
+      person {
+        id
+        firstName
+        startRecords {
+          startTime
+          event {
+            id
+            name
+            competitorCount(organisationIds: ["273"]) {
+              numberOfEntries
+              numberOfStarts
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`Event` also links to entries, organisers, classes, fees, documents, starts, and results.
+
+`Organisation` links to events, documents, people, competitors, entries, counts, starts, results, activities, memberships, and exports.
+
+`Person` links to its organisation, competitor settings, counts, starts, and results.
+
+## Upcoming events example
 
 ```graphql
 query UpcomingEvents {

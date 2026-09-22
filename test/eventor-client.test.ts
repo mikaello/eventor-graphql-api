@@ -41,3 +41,24 @@ test("returns useful upstream errors without exposing credentials", async () => 
       !error.message.includes("secret-key"),
   );
 });
+
+test("bounds concurrent GET requests", async () => {
+  let active = 0;
+  let maximumActive = 0;
+  const client = new EventorClient({
+    apiKey: "secret-key",
+    baseUrl: "https://eventor.example/api",
+    maxConcurrentGets: 2,
+    fetch: async () => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return new Response("<EventList />");
+    },
+  });
+
+  await Promise.all([1, 2, 3, 4].map((id) => client.get("events", { eventIds: [String(id)] })));
+
+  assert.equal(maximumActive, 2);
+});
