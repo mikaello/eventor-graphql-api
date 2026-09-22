@@ -94,6 +94,28 @@ query EventEntrantsAndTheirStarts {
 
 `Person` links to its organisation, competitor settings, counts, starts, and results.
 
+## Upcoming events example
+
+```graphql
+query UpcomingEvents {
+  events(input: { fromDate: "2026-09-01", toDate: "2026-10-01" }) {
+    id
+    name
+    startDate
+    classification
+    organisers {
+      id
+      name
+    }
+    classes {
+      id
+      name
+      numberOfEntries
+    }
+  }
+}
+```
+
 ## Verification
 
 ```sh
