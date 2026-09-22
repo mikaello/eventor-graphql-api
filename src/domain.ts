@@ -10,7 +10,7 @@ import {
   toJson,
   type XmlRecord,
 } from "./xml.js";
-import { eventorParsers } from "./rescript-eventor.js";
+import { eventorClassificationFromId, eventorParsers } from "./rescript-eventor.js";
 
 export type EventClassification =
   | "INTERNATIONAL"
@@ -107,15 +107,6 @@ export interface CompetitorCount {
   numberOfStarts: number | null;
 }
 
-const classifications: Record<string, EventClassification> = {
-  "0": "INTERNATIONAL",
-  "1": "CHAMPIONSHIP",
-  "2": "NATIONAL",
-  "3": "REGIONAL",
-  "4": "NEARBY",
-  "5": "CLUB",
-};
-
 function id(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -142,7 +133,11 @@ export function parseEventNode(node: XmlRecord): Event {
     name: text(node.Name) ?? "",
     startDate: dateTime(node.StartDate),
     finishDate: dateTime(node.FinishDate),
-    classification: classificationId === null ? null : (classifications[classificationId] ?? null),
+    classification:
+      classificationId === null
+        ? null
+        : ((eventorClassificationFromId(classificationId) as EventClassification | undefined) ??
+          null),
     statusId: text(node.EventStatusId),
     disciplineId: text(node.DisciplineId),
     organiserIds: [...new Set(organiserIds)],

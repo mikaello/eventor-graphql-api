@@ -1,3 +1,10 @@
+declare module "rescript-eventor/src/EventClassification.res.mjs" {
+  export function fromId(
+    id: string,
+  ): import("rescript-eventor/Eventor").EventClassification | undefined;
+  export function toId(classification: import("rescript-eventor/Eventor").EventClassification): string;
+}
+
 declare module "rescript-eventor/src/NativeOrganisation.res.mjs" {
   export function parse(
     xml: string,

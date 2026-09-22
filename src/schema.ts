@@ -18,6 +18,7 @@ import {
   type Person,
 } from "./domain.js";
 import type { EventorClient, Query, QueryValue } from "./eventor-client.js";
+import { eventorClassificationToId } from "./rescript-eventor.js";
 
 export const typeDefs = /* GraphQL */ `
   scalar JSON
@@ -247,15 +248,6 @@ export interface GraphQLContext {
   client: EventorClient;
 }
 
-const classificationIds: Record<string, string> = {
-  INTERNATIONAL: "0",
-  CHAMPIONSHIP: "1",
-  NATIONAL: "2",
-  REGIONAL: "3",
-  NEARBY: "4",
-  CLUB: "5",
-};
-
 function literal(node: ValueNode): unknown {
   switch (node.kind) {
     case Kind.NULL:
@@ -305,7 +297,7 @@ function eventsQuery(input: Record<string, unknown> | null | undefined): Query {
   const classification = input?.classification;
   if (Array.isArray(classification)) {
     query.classificationIds = classification
-      .map((value) => classificationIds[String(value)])
+      .map((value) => eventorClassificationToId(String(value)))
       .filter((value): value is string => value !== undefined);
     delete query.classification;
   }
