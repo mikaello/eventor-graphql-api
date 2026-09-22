@@ -8,11 +8,9 @@ import type {
   NativePerson,
   Result,
 } from "rescript-eventor/Eventor";
-import { EventClassification } from "rescript-eventor/Eventor";
-import {
-  fromId as classificationFromId,
-  toId as classificationToId,
-} from "rescript-eventor/src/EventClassification.res.mjs";
+import { EventClassificationFilter } from "rescript-eventor/Eventor";
+import { fromId as classificationFromId } from "rescript-eventor/src/EventClassification.res.mjs";
+import { toId as classificationFilterToId } from "rescript-eventor/src/EventClassificationFilter.res.mjs";
 import { parse as parseCompetitorCounts } from "rescript-eventor/src/NativeCompetitorCount.res.mjs";
 import { parse as parseDocuments } from "rescript-eventor/src/NativeDocument.res.mjs";
 import { parse as parseEntryFees } from "rescript-eventor/src/NativeEntryFee.res.mjs";
@@ -38,10 +36,10 @@ export function eventorClassificationFromId(id: string): string | undefined {
 }
 
 export function eventorClassificationToId(name: string): string | undefined {
-  const classification = Object.values(EventClassification).find(
+  const classification = Object.values(EventClassificationFilter).find(
     (value) => value.toUpperCase() === name,
   );
-  return classification === undefined ? undefined : classificationToId(classification);
+  return classification === undefined ? undefined : classificationFilterToId(classification);
 }
 
 export const eventorParsers = {
