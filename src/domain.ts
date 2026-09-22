@@ -57,6 +57,8 @@ export interface Competitor {
 export interface Entry {
   id: string;
   competitorId: string;
+  personId: string | null;
+  organisationId: string | null;
   person: Person | null;
   organisation: Organisation | null;
   cardId: string | null;
@@ -73,6 +75,7 @@ export interface EventClass {
   highAge: number | null;
   sex: string | null;
   numberOfEntries: number | null;
+  eventId?: string;
 }
 
 export interface EventDocument {
@@ -93,12 +96,39 @@ export interface EntryFee {
   entryFeeType: string | null;
   feeType: string | null;
   validToDate: string | null;
+  eventId?: string;
 }
 
 export interface CompetitorCount {
   eventId: string;
   numberOfEntries: number | null;
   numberOfStarts: number | null;
+}
+
+export interface EventStart {
+  person: Person | null;
+  personId: string | null;
+  organisation: Organisation | null;
+  organisationId: string | null;
+  eventId: string;
+  eventName: string | null;
+  eventClassId: string | null;
+  className: string | null;
+  classShortName: string | null;
+  controlCardId: string | null;
+  startTime: string | null;
+  startId: string | null;
+}
+
+export interface EventResult {
+  person: Person | null;
+  personId: string | null;
+  organisation: Organisation | null;
+  organisationId: string | null;
+  eventId: string;
+  eventName: string | null;
+  eventClassId: string | null;
+  time: string | null;
 }
 
 function id(value: unknown): string {
@@ -188,6 +218,9 @@ export function parseEntryNode(node: XmlRecord): Entry {
   return {
     id: id(text(node.EntryId)),
     competitorId: id(text(competitorNode.CompetitorId)),
+    personId: text(competitorNode.PersonId) ?? text(personNode.PersonId),
+    organisationId:
+      text(competitorNode.OrganisationId) ?? text(organisationNode.OrganisationId),
     person: Object.keys(personNode).length === 0 ? null : parsePersonNode(personNode),
     organisation:
       Object.keys(organisationNode).length === 0 ? null : parseOrganisationNode(organisationNode),
@@ -288,6 +321,132 @@ export function parseCompetitorCounts(xml: string): CompetitorCount[] {
     numberOfEntries: count.numberOfEntries ?? null,
     numberOfStarts: count.numberOfStarts ?? null,
   }));
+}
+
+export function parsePersonEventStarts(xml: string, person: Person): EventStart[] {
+  return eventorParsers.personStarts(xml).flatMap((startList) =>
+    startList.personStarts.map((start) => ({
+      person,
+      personId: start.personId ?? person.id,
+      organisation: null,
+      organisationId: person.organisationId,
+      eventId: startList.eventId,
+      eventName: startList.eventName ?? null,
+      eventClassId: null,
+      className: null,
+      classShortName: null,
+      controlCardId: null,
+      startTime: start.startTime ?? null,
+      startId: null,
+    })),
+  );
+}
+
+export function parseEventStarts(xml: string): EventStart[] {
+  const startList = eventorParsers.eventStarts(xml);
+  return startList.classStarts.flatMap((classStart) =>
+    classStart.starters.map((starter) => ({
+      person:
+        starter.person === undefined
+          ? null
+          : {
+              id: starter.person.id,
+              firstName: starter.person.firstName,
+              lastName: starter.person.lastName,
+              birthDate: starter.person.birthDate ?? null,
+              sex:
+                starter.person.sex === "Male"
+                  ? "MALE"
+                  : starter.person.sex === "Female"
+                    ? "FEMALE"
+                    : null,
+              nationalityId: starter.person.nationalityId ?? null,
+              organisationId: starter.person.organisationId ?? null,
+            },
+      personId: starter.person?.id ?? null,
+      organisation:
+        starter.organisation === undefined
+          ? null
+          : {
+              id: starter.organisation.id,
+              name: starter.organisation.name,
+              shortName: starter.organisation.shortName ?? null,
+              typeId: starter.organisation.typeId ?? null,
+              countryId: starter.organisation.countryId ?? null,
+            },
+      organisationId: starter.organisation?.id ?? null,
+      eventId: startList.eventId,
+      eventName: startList.eventName ?? null,
+      eventClassId: classStart.eventClassId ?? null,
+      className: classStart.className ?? null,
+      classShortName: classStart.classShortName ?? null,
+      controlCardId: starter.ccardId ?? null,
+      startTime: starter.startTime ?? null,
+      startId: starter.startId ?? null,
+    })),
+  );
+}
+
+export function parseEventResults(xml: string, person: Person | null = null): EventResult[] {
+  const document = parseXml(xml);
+  const listWrapper = record(document.ResultListList);
+  const resultLists =
+    document.ResultListList === undefined
+      ? [root(document, "ResultList")]
+      : records(listWrapper.ResultList);
+  const results = resultLists.flatMap((resultList) => {
+    const eventNode = record(resultList.Event);
+    const eventId = text(resultList.EventId) ?? text(eventNode.EventId) ?? "";
+    const eventName = text(eventNode.Name);
+    return records(resultList.ClassResult).flatMap((classResult) => {
+      const eventClassNode = record(classResult.EventClass);
+      const eventClassId =
+        text(classResult.EventClassId) ?? text(eventClassNode.EventClassId);
+      return records(classResult.PersonResult).map((personResult) => {
+        const personNode = record(personResult.Person);
+        const organisationNode = record(personResult.Organisation);
+        const embeddedPerson =
+          Object.keys(personNode).length === 0 ? null : parsePersonNode(personNode);
+        const organisation =
+          Object.keys(organisationNode).length === 0
+            ? null
+            : parseOrganisationNode(organisationNode);
+        const result = record(personResult.Result);
+        return {
+          person: person ?? embeddedPerson,
+          personId:
+            text(personResult.PersonId) ??
+            text(personNode.PersonId) ??
+            person?.id ??
+            null,
+          organisation,
+          organisationId:
+            text(personResult.OrganisationId) ??
+            text(organisationNode.OrganisationId) ??
+            person?.organisationId ??
+            null,
+          eventId,
+          eventName,
+          eventClassId,
+          time: text(result.Time),
+        };
+      });
+    });
+  });
+
+  if (results.length > 0) return results;
+  return eventorParsers.results(xml).flatMap((resultList) =>
+    resultList.personResults.map((result) => ({
+      person,
+      personId: result.personId ?? person?.id ?? null,
+      organisation: null,
+      organisationId: person?.organisationId ?? null,
+      eventId: resultList.eventId,
+      eventName: resultList.eventName ?? null,
+      eventClassId: null,
+      time: result.time ?? null,
+    })),
+  );
 }
 
 export function parseDocument(xml: string): unknown {

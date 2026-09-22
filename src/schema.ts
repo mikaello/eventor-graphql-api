@@ -13,16 +13,28 @@ import {
   parseEntryFees,
   parseEvent,
   parseEventClasses,
+  parseEventResults,
+  parseEventStarts,
   parseEvents,
   parseOrganisation,
   parseOrganisations,
   parsePersons,
   parseDocument,
+  parsePersonEventStarts,
+  type Competitor,
+  type CompetitorCount,
+  type Entry,
+  type EntryFee,
   type Event,
+  type EventClass,
+  type EventDocument,
+  type EventResult,
+  type EventStart,
   type Organisation,
   type Person,
 } from "./domain.js";
 import type { EventorClient, Query, QueryValue } from "./eventor-client.js";
+import type { RequestLoaders } from "./loaders.js";
 import { eventorClassificationToId } from "./rescript-eventor.js";
 
 export const typeDefs = /* GraphQL */ `
@@ -124,8 +136,20 @@ export const typeDefs = /* GraphQL */ `
     organiserIds: [ID!]!
     eventForm: String
     organisers: [Organisation!]!
+    entries: [Entry!]!
     classes(includeEntryFees: Boolean = false): [EventClass!]!
+    entryFees: [EntryFee!]!
     documents: [EventDocument!]!
+    competitorCount(organisationIds: [ID!]!, personIds: [ID!]): CompetitorCount
+    startRecords: [EventStart!]!
+    resultRecords(includeSplitTimes: Boolean = false, top: Int): [EventResult!]!
+    iofXml: XmlDocument!
+    startsIofXml(eventRaceId: ID): XmlDocument!
+    resultsIofXml(
+      eventRaceId: ID
+      includeSplitTimes: Boolean = false
+      totalResult: Boolean = false
+    ): XmlDocument!
     starts: XmlDocument!
     results(includeSplitTimes: Boolean = false, top: Int): XmlDocument!
   }
@@ -142,6 +166,27 @@ export const typeDefs = /* GraphQL */ `
       includeIdentifiers: Boolean = false
     ): [Person!]!
     competitors: [Competitor!]!
+    events(input: EventsInput): [Event!]!
+    documents(input: DocumentsInput): [EventDocument!]!
+    entries(eventIds: [ID!]!, eventClassIds: [ID!]): [Entry!]!
+    competitorCounts(eventIds: [ID!], personIds: [ID!]): [CompetitorCount!]!
+    startRecords(eventId: ID!): [EventStart!]!
+    resultRecords(
+      eventId: ID!
+      includeSplitTimes: Boolean = false
+      top: Int
+    ): [EventResult!]!
+    activities(from: String!, to: String!, includeRegistrations: Boolean = false): XmlDocument!
+    activity(id: ID!, includeRegistrations: Boolean = false): XmlDocument!
+    memberships(
+      year: Int!
+      includeChildOrganisations: Boolean = false
+      includeContactDetails: Boolean = false
+    ): XmlDocument!
+    exportedCompetitors(
+      version: String = "3.0"
+      includePreselectedClasses: Boolean = false
+    ): XmlDocument!
   }
 
   type Person {
@@ -153,6 +198,16 @@ export const typeDefs = /* GraphQL */ `
     nationalityId: ID
     organisationId: ID
     organisation: Organisation
+    competitor: Competitor
+    startRecords(eventIds: [ID!], fromDate: String, toDate: String): [EventStart!]!
+    resultRecords(
+      eventIds: [ID!]
+      fromDate: String
+      toDate: String
+      includeSplitTimes: Boolean = false
+      top: Int
+    ): [EventResult!]!
+    competitorCounts(eventIds: [ID!]): [CompetitorCount!]!
     starts(eventIds: [ID!], fromDate: String, toDate: String): XmlDocument!
     results(
       eventIds: [ID!]
@@ -175,10 +230,12 @@ export const typeDefs = /* GraphQL */ `
   type Entry {
     id: ID!
     competitorId: ID!
+    competitor: Competitor!
     person: Person
     organisation: Organisation
     cardId: ID
     eventClassId: ID
+    eventClass: EventClass
     event: Event
     eventId: ID
   }
@@ -191,6 +248,9 @@ export const typeDefs = /* GraphQL */ `
     highAge: Int
     sex: String
     numberOfEntries: Int
+    event: Event
+    wrsResultRecords: [EventResult!]!
+    wrsResults: XmlDocument!
   }
 
   type EventDocument {
@@ -200,6 +260,7 @@ export const typeDefs = /* GraphQL */ `
     url: String
     modifyDate: String
     documentType: String
+    event: Event
   }
 
   type EntryFee {
@@ -211,12 +272,42 @@ export const typeDefs = /* GraphQL */ `
     entryFeeType: String
     feeType: String
     validToDate: String
+    event: Event
   }
 
   type CompetitorCount {
     eventId: ID!
     numberOfEntries: Int
     numberOfStarts: Int
+    event: Event!
+  }
+
+  type EventStart {
+    personId: ID
+    person: Person
+    organisationId: ID
+    organisation: Organisation
+    eventId: ID!
+    event: Event!
+    eventClassId: ID
+    eventClass: EventClass
+    className: String
+    classShortName: String
+    controlCardId: ID
+    startTime: String
+    startId: ID
+  }
+
+  type EventResult {
+    personId: ID
+    person: Person
+    organisationId: ID
+    organisation: Organisation
+    eventId: ID!
+    event: Event!
+    eventClassId: ID
+    eventClass: EventClass
+    time: String
   }
 
   type Query {
@@ -259,6 +350,7 @@ export const typeDefs = /* GraphQL */ `
 
 export interface GraphQLContext {
   client: EventorClient;
+  loaders: RequestLoaders;
 }
 
 function literal(node: ValueNode): unknown {
@@ -365,10 +457,20 @@ export const resolvers = {
     CLUB: EventClassificationFilter.Club,
   },
   Query: {
-    events: async (_: unknown, { input }: { input?: Record<string, unknown> }, { client }: GraphQLContext) =>
-      parseEvents(await client.get("events", eventsQuery(input))),
-    event: async (_: unknown, { id }: { id: string }, { client }: GraphQLContext) =>
-      parseEvent(await client.get(`event/${encodeURIComponent(id)}`)),
+    events: async (
+      _: unknown,
+      { input }: { input?: Record<string, unknown> },
+      { client, loaders }: GraphQLContext,
+    ) => {
+      const events = parseEvents(await client.get("events", eventsQuery(input)));
+      events.forEach((event) => loaders.eventsById.prime(event));
+      return events;
+    },
+    event: async (
+      _: unknown,
+      { id }: { id: string },
+      { client, loaders }: GraphQLContext,
+    ) => loaders.eventsById.prime(parseEvent(await client.get(`event/${encodeURIComponent(id)}`))),
     organisations: async (
       _: unknown,
       { includeProperties }: { includeProperties: boolean },
@@ -401,9 +503,15 @@ export const resolvers = {
       _: unknown,
       args: { eventId: string; includeEntryFees: boolean },
       { client }: GraphQLContext,
-    ) => parseEventClasses(await client.get("eventclasses", args)),
+    ) =>
+      parseEventClasses(await client.get("eventclasses", args)).map((eventClass) => ({
+        ...eventClass,
+        eventId: args.eventId,
+      })),
     entryFees: async (_: unknown, { eventId }: { eventId: string }, { client }: GraphQLContext) =>
-      parseEntryFees(await client.get(`entryfees/events/${encodeURIComponent(eventId)}`)),
+      parseEntryFees(await client.get(`entryfees/events/${encodeURIComponent(eventId)}`)).map(
+        (entryFee) => ({ ...entryFee, eventId }),
+      ),
     documents: async (_: unknown, { input }: { input?: Record<string, unknown> }, { client }: GraphQLContext) =>
       parseDocuments(await client.get("events/documents", asQuery(input))),
     competitorCounts: async (
@@ -450,13 +558,40 @@ export const resolvers = {
           parseOrganisation(await client.get(`organisation/${encodeURIComponent(id)}`)),
         ),
       ),
+    entries: async (event: Event, _: unknown, { loaders }: GraphQLContext) =>
+      loaders.entriesByEvent.load(event.id),
     classes: async (
       event: Event,
       { includeEntryFees }: { includeEntryFees: boolean },
       { client }: GraphQLContext,
-    ) => parseEventClasses(await client.get("eventclasses", { eventId: event.id, includeEntryFees })),
+    ) =>
+      parseEventClasses(
+        await client.get("eventclasses", { eventId: event.id, includeEntryFees }),
+      ).map((eventClass) => ({ ...eventClass, eventId: event.id })),
+    entryFees: async (event: Event, _: unknown, { client }: GraphQLContext) =>
+      parseEntryFees(await client.get(`entryfees/events/${encodeURIComponent(event.id)}`)).map(
+        (entryFee) => ({ ...entryFee, eventId: event.id }),
+      ),
     documents: async (event: Event, _: unknown, { client }: GraphQLContext) =>
       parseDocuments(await client.get("events/documents", { eventIds: [event.id] })),
+    competitorCount: async (
+      event: Event,
+      { organisationIds, personIds }: { organisationIds: string[]; personIds?: string[] },
+      { loaders }: GraphQLContext,
+    ) => loaders.competitorCountsByEvent.load({ eventId: event.id, organisationIds, personIds }),
+    startRecords: async (event: Event, _: unknown, { client }: GraphQLContext) =>
+      parseEventStarts(await client.get("starts/event", { eventId: event.id })),
+    resultRecords: async (
+      event: Event,
+      args: { includeSplitTimes: boolean; top?: number },
+      { client }: GraphQLContext,
+    ) => parseEventResults(await client.get("results/event", { eventId: event.id, ...args })),
+    iofXml: async (event: Event, _: unknown, { client }: GraphQLContext) =>
+      xmlDocument(client, `event/iofxml/${encodeURIComponent(event.id)}`),
+    startsIofXml: async (event: Event, args: Query, { client }: GraphQLContext) =>
+      xmlDocument(client, "starts/event/iofxml", { eventId: event.id, ...args }),
+    resultsIofXml: async (event: Event, args: Query, { client }: GraphQLContext) =>
+      xmlDocument(client, "results/event/iofxml", { eventId: event.id, ...args }),
     starts: async (event: Event, _: unknown, { client }: GraphQLContext) =>
       xmlDocument(client, "starts/event", { eventId: event.id }),
     results: async (
@@ -476,6 +611,96 @@ export const resolvers = {
       ),
     competitors: async (organisation: Organisation, _: unknown, { client }: GraphQLContext) =>
       parseCompetitors(await client.get("competitors", { organisationId: organisation.id })),
+    events: async (
+      organisation: Organisation,
+      { input }: { input?: Record<string, unknown> },
+      { client, loaders }: GraphQLContext,
+    ) => {
+      const events = parseEvents(
+        await client.get("events", {
+          ...eventsQuery(input),
+          organisationIds: [organisation.id],
+        }),
+      );
+      events.forEach((event) => loaders.eventsById.prime(event));
+      return events;
+    },
+    documents: async (
+      organisation: Organisation,
+      { input }: { input?: Record<string, unknown> },
+      { client }: GraphQLContext,
+    ) =>
+      parseDocuments(
+        await client.get("events/documents", {
+          ...asQuery(input),
+          organisationIds: [organisation.id],
+        }),
+      ),
+    entries: async (
+      organisation: Organisation,
+      { eventIds, eventClassIds }: { eventIds: string[]; eventClassIds?: string[] },
+      { client }: GraphQLContext,
+    ) =>
+      parseEntries(
+        await client.get("entries", {
+          organisationIds: [organisation.id],
+          eventIds,
+          eventClassIds,
+          includePersonElement: true,
+          includeOrganisationElement: true,
+          includeEventElement: true,
+        }),
+      ),
+    competitorCounts: async (
+      organisation: Organisation,
+      { eventIds, personIds }: { eventIds?: string[]; personIds?: string[] },
+      { client }: GraphQLContext,
+    ) =>
+      parseCompetitorCounts(
+        await client.get("competitorcount", {
+          organisationIds: [organisation.id],
+          eventIds,
+          personIds,
+        }),
+      ),
+    startRecords: async (
+      organisation: Organisation,
+      { eventId }: { eventId: string },
+      { client }: GraphQLContext,
+    ) =>
+      parseEventStarts(
+        await client.get("starts/organisation", {
+          organisationIds: [organisation.id],
+          eventId,
+        }),
+      ),
+    resultRecords: async (
+      organisation: Organisation,
+      args: { eventId: string; includeSplitTimes: boolean; top?: number },
+      { client }: GraphQLContext,
+    ) =>
+      parseEventResults(
+        await client.get("results/organisation", {
+          organisationIds: [organisation.id],
+          ...args,
+        }),
+      ),
+    activities: async (organisation: Organisation, args: Query, { client }: GraphQLContext) =>
+      xmlDocument(client, "activities", { organisationId: organisation.id, ...args }),
+    activity: async (organisation: Organisation, args: Query, { client }: GraphQLContext) =>
+      xmlDocument(client, "activity", { organisationId: organisation.id, ...args }),
+    memberships: async (organisation: Organisation, args: Query, { client }: GraphQLContext) =>
+      xmlDocument(client, "memberships", { organisationId: organisation.id, ...args }),
+    exportedCompetitors: async (
+      organisation: Organisation,
+      args: Query,
+      { client }: GraphQLContext,
+    ) =>
+      xmlDocument(client, "export/competitors", {
+        organisationIds: [organisation.id],
+        ...args,
+        zip: false,
+      }),
   },
   Person: {
     organisation: async (person: Person, _: unknown, { client }: GraphQLContext) =>
@@ -484,9 +709,124 @@ export const resolvers = {
         : parseOrganisation(
             await client.get(`organisation/${encodeURIComponent(person.organisationId)}`),
           ),
+    competitor: async (person: Person, _: unknown, { client }: GraphQLContext) => {
+      if (person.organisationId === null) return null;
+      return (
+        parseCompetitors(
+          await client.get("competitors", { organisationId: person.organisationId }),
+        ).find((competitor) => competitor.person?.id === person.id) ?? null
+      );
+    },
+    startRecords: async (person: Person, args: Query, { client }: GraphQLContext) =>
+      parsePersonEventStarts(
+        await client.get("starts/person", { personId: person.id, ...args }),
+        person,
+      ),
+    resultRecords: async (person: Person, args: Query, { client }: GraphQLContext) =>
+      parseEventResults(
+        await client.get("results/person", { personId: person.id, ...args }),
+        person,
+      ),
+    competitorCounts: async (
+      person: Person,
+      { eventIds }: { eventIds?: string[] },
+      { client }: GraphQLContext,
+    ) =>
+      person.organisationId === null
+        ? []
+        : parseCompetitorCounts(
+            await client.get("competitorcount", {
+              organisationIds: [person.organisationId],
+              personIds: [person.id],
+              eventIds,
+            }),
+          ),
     starts: async (person: Person, args: Query, { client }: GraphQLContext) =>
       xmlDocument(client, "starts/person", { personId: person.id, ...args }),
     results: async (person: Person, args: Query, { client }: GraphQLContext) =>
       xmlDocument(client, "results/person", { personId: person.id, ...args }),
+  },
+  Entry: {
+    competitor: async (entry: Entry, _: unknown, { client }: GraphQLContext) =>
+      parseCompetitor(await client.get(`competitor/${encodeURIComponent(entry.competitorId)}`)),
+    person: async (entry: Entry, _: unknown, { client }: GraphQLContext) =>
+      entry.person ??
+      parseCompetitor(await client.get(`competitor/${encodeURIComponent(entry.competitorId)}`))
+        .person,
+    organisation: async (entry: Entry, _: unknown, { client }: GraphQLContext) => {
+      if (entry.organisation !== null) return entry.organisation;
+      if (entry.organisationId === null) return null;
+      return parseOrganisation(
+        await client.get(`organisation/${encodeURIComponent(entry.organisationId)}`),
+      );
+    },
+    event: async (entry: Entry, _: unknown, { loaders }: GraphQLContext) =>
+      entry.event ?? (entry.eventId === null ? null : loaders.eventsById.load(entry.eventId)),
+    eventClass: async (entry: Entry, _: unknown, { client }: GraphQLContext) => {
+      if (entry.eventId === null || entry.eventClassId === null) return null;
+      const classes = parseEventClasses(
+        await client.get("eventclasses", { eventId: entry.eventId, includeEntryFees: false }),
+      );
+      const eventClass = classes.find((item) => item.id === entry.eventClassId);
+      return eventClass === undefined ? null : { ...eventClass, eventId: entry.eventId };
+    },
+  },
+  EventClass: {
+    event: async (eventClass: EventClass, _: unknown, { loaders }: GraphQLContext) =>
+      eventClass.eventId === undefined ? null : loaders.eventsById.load(eventClass.eventId),
+    wrsResultRecords: async (eventClass: EventClass, _: unknown, { client }: GraphQLContext) =>
+      parseEventResults(await client.get("wrsresults/event", { classId: eventClass.id })),
+    wrsResults: async (eventClass: EventClass, _: unknown, { client }: GraphQLContext) =>
+      xmlDocument(client, "wrsresults/event", { classId: eventClass.id }),
+  },
+  EventDocument: {
+    event: async (document: EventDocument, _: unknown, { loaders }: GraphQLContext) =>
+      document.referenceId === null ? null : loaders.eventsById.load(document.referenceId),
+  },
+  EntryFee: {
+    event: async (entryFee: EntryFee, _: unknown, { loaders }: GraphQLContext) =>
+      entryFee.eventId === undefined ? null : loaders.eventsById.load(entryFee.eventId),
+  },
+  CompetitorCount: {
+    event: async (count: CompetitorCount, _: unknown, { loaders }: GraphQLContext) =>
+      loaders.eventsById.load(count.eventId),
+  },
+  EventStart: {
+    event: async (start: EventStart, _: unknown, { loaders }: GraphQLContext) =>
+      loaders.eventsById.load(start.eventId),
+    organisation: async (start: EventStart, _: unknown, { client }: GraphQLContext) => {
+      if (start.organisation !== null) return start.organisation;
+      if (start.organisationId === null) return null;
+      return parseOrganisation(
+        await client.get(`organisation/${encodeURIComponent(start.organisationId)}`),
+      );
+    },
+    eventClass: async (start: EventStart, _: unknown, { client }: GraphQLContext) => {
+      if (start.eventClassId === null) return null;
+      const classes = parseEventClasses(
+        await client.get("eventclasses", { eventId: start.eventId, includeEntryFees: false }),
+      );
+      const eventClass = classes.find((item) => item.id === start.eventClassId);
+      return eventClass === undefined ? null : { ...eventClass, eventId: start.eventId };
+    },
+  },
+  EventResult: {
+    event: async (result: EventResult, _: unknown, { loaders }: GraphQLContext) =>
+      loaders.eventsById.load(result.eventId),
+    organisation: async (result: EventResult, _: unknown, { client }: GraphQLContext) => {
+      if (result.organisation !== null) return result.organisation;
+      if (result.organisationId === null) return null;
+      return parseOrganisation(
+        await client.get(`organisation/${encodeURIComponent(result.organisationId)}`),
+      );
+    },
+    eventClass: async (result: EventResult, _: unknown, { client }: GraphQLContext) => {
+      if (result.eventClassId === null) return null;
+      const classes = parseEventClasses(
+        await client.get("eventclasses", { eventId: result.eventId, includeEntryFees: false }),
+      );
+      const eventClass = classes.find((item) => item.id === result.eventClassId);
+      return eventClass === undefined ? null : { ...eventClass, eventId: result.eventId };
+    },
   },
 };
