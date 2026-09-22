@@ -1,5 +1,7 @@
 import { DOMParser } from "@xmldom/xmldom";
 import type {
+  EventClassification,
+  EventClassificationFilter,
   NativeCompetitorCount,
   NativeDocument,
   NativeEntryFee,
@@ -8,7 +10,6 @@ import type {
   NativePerson,
   Result,
 } from "rescript-eventor/Eventor";
-import { EventClassificationFilter } from "rescript-eventor/Eventor";
 import { fromId as classificationFromId } from "rescript-eventor/src/EventClassification.res.mjs";
 import { toId as classificationFilterToId } from "rescript-eventor/src/EventClassificationFilter.res.mjs";
 import { parse as parseCompetitorCounts } from "rescript-eventor/src/NativeCompetitorCount.res.mjs";
@@ -31,15 +32,12 @@ function unwrap<T>(result: Result<T>): T {
   return result._0;
 }
 
-export function eventorClassificationFromId(id: string): string | undefined {
-  return classificationFromId(id)?.toUpperCase();
+export function eventorClassificationFromId(id: string): EventClassification | undefined {
+  return classificationFromId(id);
 }
 
-export function eventorClassificationToId(name: string): string | undefined {
-  const classification = Object.values(EventClassificationFilter).find(
-    (value) => value.toUpperCase() === name,
-  );
-  return classification === undefined ? undefined : classificationFilterToId(classification);
+export function eventorClassificationToId(classification: EventClassificationFilter): string {
+  return classificationFilterToId(classification);
 }
 
 export const eventorParsers = {

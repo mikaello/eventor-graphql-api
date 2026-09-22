@@ -10,15 +10,9 @@ import {
   toJson,
   type XmlRecord,
 } from "./xml.js";
+import type { EventClassification } from "rescript-eventor/Eventor";
 import { eventorClassificationFromId, eventorParsers } from "./rescript-eventor.js";
 
-export type EventClassification =
-  | "INTERNATIONAL"
-  | "CHAMPIONSHIP"
-  | "NATIONAL"
-  | "REGIONAL"
-  | "NEARBY"
-  | "CLUB";
 export type Sex = "MALE" | "FEMALE";
 
 export interface Event {
@@ -134,10 +128,7 @@ export function parseEventNode(node: XmlRecord): Event {
     startDate: dateTime(node.StartDate),
     finishDate: dateTime(node.FinishDate),
     classification:
-      classificationId === null
-        ? null
-        : ((eventorClassificationFromId(classificationId) as EventClassification | undefined) ??
-          null),
+      classificationId === null ? null : (eventorClassificationFromId(classificationId) ?? null),
     statusId: text(node.EventStatusId),
     disciplineId: text(node.DisciplineId),
     organiserIds: [...new Set(organiserIds)],

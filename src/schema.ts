@@ -1,5 +1,10 @@
 import { GraphQLScalarType, Kind, type ValueNode } from "graphql";
 import {
+  EventClassification,
+  EventClassificationFilter,
+  type EventClassificationFilter as EventClassificationFilterValue,
+} from "rescript-eventor/Eventor";
+import {
   parseCompetitor,
   parseCompetitorCounts,
   parseCompetitors,
@@ -304,9 +309,9 @@ function eventsQuery(input: Record<string, unknown> | null | undefined): Query {
   const query = asQuery(input);
   const classification = input?.classification;
   if (Array.isArray(classification)) {
-    query.classificationIds = classification
-      .map((value) => eventorClassificationToId(String(value)))
-      .filter((value): value is string => value !== undefined);
+    query.classificationIds = classification.map((value) =>
+      eventorClassificationToId(value as EventClassificationFilterValue),
+    );
     delete query.classification;
   }
   return query;
@@ -344,6 +349,21 @@ const rawPaths: Record<string, string> = {
 
 export const resolvers = {
   JSON: jsonScalar,
+  EventClassification: {
+    INTERNATIONAL: EventClassification.International,
+    CHAMPIONSHIP: EventClassification.Championship,
+    NATIONAL: EventClassification.National,
+    REGIONAL: EventClassification.Regional,
+    NEARBY: EventClassification.Nearby,
+    CLUB: EventClassification.Club,
+  },
+  EventClassificationFilter: {
+    CHAMPIONSHIP: EventClassificationFilter.Championship,
+    NATIONAL: EventClassificationFilter.National,
+    REGIONAL: EventClassificationFilter.Regional,
+    NEARBY: EventClassificationFilter.Nearby,
+    CLUB: EventClassificationFilter.Club,
+  },
   Query: {
     events: async (_: unknown, { input }: { input?: Record<string, unknown> }, { client }: GraphQLContext) =>
       parseEvents(await client.get("events", eventsQuery(input))),

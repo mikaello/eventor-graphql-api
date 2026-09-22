@@ -52,6 +52,33 @@ test("serves typed GraphQL data and nested Eventor relationships", async () => {
   assert.match(urls[0] ?? "", /classificationIds=2/);
 });
 
+test("serializes upstream international classifications as GraphQL enums", async () => {
+  const yoga = createApp({
+    baseUrl: "https://proxy.example/api",
+    fetch: async () =>
+      new Response(`
+        <Event><EventId>19379</EventId><Name>NC, sprint</Name>
+        <EventClassificationId>0</EventClassificationId></Event>
+      `),
+    logging: false,
+  });
+  const response = await yoga.fetch("http://localhost/api/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: "12345678901234567890123456789012",
+    },
+    body: JSON.stringify({ query: '{ event(id: "19379") { id classification } }' }),
+  });
+  const body = (await response.json()) as {
+    data?: { event: { id: string; classification: string } };
+    errors?: unknown[];
+  };
+
+  assert.equal(body.errors, undefined);
+  assert.deepEqual(body.data?.event, { id: "19379", classification: "INTERNATIONAL" });
+});
+
 test("allows schema introspection without an Eventor API key", async () => {
   const yoga = createApp({
     baseUrl: "https://proxy.example/api",

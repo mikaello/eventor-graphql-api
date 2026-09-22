@@ -35,7 +35,7 @@ test("parses native Eventor events into stable GraphQL values", () => {
       name: "Night race",
       startDate: "2026-05-12T17:30:00",
       finishDate: null,
-      classification: "NEARBY",
+      classification: "Nearby",
       statusId: null,
       disciplineId: null,
       organiserIds: ["273"],
@@ -55,7 +55,7 @@ test("maps Eventor classification 0 to an international event", () => {
     </EventList>
   `);
 
-  assert.equal(events[0]?.classification, "INTERNATIONAL");
+  assert.equal(events[0]?.classification, "International");
 });
 
 test("parses both text and attribute-based Eventor values", () => {
