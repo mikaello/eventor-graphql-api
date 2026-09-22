@@ -44,6 +44,20 @@ test("parses native Eventor events into stable GraphQL values", () => {
   ]);
 });
 
+test("maps Eventor classification 0 to an international event", () => {
+  const events = parseEvents(`
+    <EventList>
+      <Event>
+        <EventId>19379</EventId>
+        <Name>NC, sprint</Name>
+        <EventClassificationId>0</EventClassificationId>
+      </Event>
+    </EventList>
+  `);
+
+  assert.equal(events[0]?.classification, "INTERNATIONAL");
+});
+
 test("parses both text and attribute-based Eventor values", () => {
   const organisation = parseOrganisation(`
     <Organisation>

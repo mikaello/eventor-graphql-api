@@ -12,7 +12,13 @@ import {
 } from "./xml.js";
 import { eventorParsers } from "./rescript-eventor.js";
 
-export type EventClassification = "CHAMPIONSHIP" | "NATIONAL" | "REGIONAL" | "NEARBY" | "CLUB";
+export type EventClassification =
+  | "INTERNATIONAL"
+  | "CHAMPIONSHIP"
+  | "NATIONAL"
+  | "REGIONAL"
+  | "NEARBY"
+  | "CLUB";
 export type Sex = "MALE" | "FEMALE";
 
 export interface Event {
@@ -102,6 +108,7 @@ export interface CompetitorCount {
 }
 
 const classifications: Record<string, EventClassification> = {
+  "0": "INTERNATIONAL",
   "1": "CHAMPIONSHIP",
   "2": "NATIONAL",
   "3": "REGIONAL",

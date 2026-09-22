@@ -23,6 +23,7 @@ export const typeDefs = /* GraphQL */ `
   scalar JSON
 
   enum EventClassification {
+    INTERNATIONAL
     CHAMPIONSHIP
     NATIONAL
     REGIONAL
@@ -247,6 +248,7 @@ export interface GraphQLContext {
 }
 
 const classificationIds: Record<string, string> = {
+  INTERNATIONAL: "0",
   CHAMPIONSHIP: "1",
   NATIONAL: "2",
   REGIONAL: "3",
