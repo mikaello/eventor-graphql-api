@@ -1,0 +1,28 @@
+{
+  "name": "eventor-graphql-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test 'test/**/*.test.ts'",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "0.9.12",
+    "fast-xml-parser": "5.11.1",
+    "graphql": "17.0.2",
+    "graphql-yoga": "5.24.1",
+    "rescript-eventor": "0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}
