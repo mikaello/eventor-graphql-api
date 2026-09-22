@@ -10,7 +10,7 @@ test("serves typed GraphQL data and nested Eventor relationships", async () => {
     if (url.pathname.endsWith("/events")) {
       return new Response(`
         <EventList><Event><EventId>7</EventId><Name>Forest race</Name>
-        <EventClassificationId>0</EventClassificationId>
+        <EventClassificationId>2</EventClassificationId>
         <Organiser><OrganisationId>273</OrganisationId></Organiser></Event></EventList>
       `);
     }
@@ -30,7 +30,7 @@ test("serves typed GraphQL data and nested Eventor relationships", async () => {
     },
     body: JSON.stringify({
       query:
-        "{ events(input: { classification: [INTERNATIONAL] }) { id name classification organisers { id name } } }",
+        "{ events(input: { classification: [NATIONAL] }) { id name classification organisers { id name } } }",
     }),
   });
   const body = (await response.json()) as {
@@ -44,12 +44,12 @@ test("serves typed GraphQL data and nested Eventor relationships", async () => {
     {
       id: "7",
       name: "Forest race",
-      classification: "INTERNATIONAL",
+      classification: "NATIONAL",
       organisers: [{ id: "273", name: "Example OK" }],
     },
   ]);
   assert.equal(urls.length, 2);
-  assert.match(urls[0] ?? "", /classificationIds=0/);
+  assert.match(urls[0] ?? "", /classificationIds=2/);
 });
 
 test("allows schema introspection without an Eventor API key", async () => {

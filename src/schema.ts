@@ -32,6 +32,14 @@ export const typeDefs = /* GraphQL */ `
     CLUB
   }
 
+  enum EventClassificationFilter {
+    CHAMPIONSHIP
+    NATIONAL
+    REGIONAL
+    NEARBY
+    CLUB
+  }
+
   enum Sex {
     MALE
     FEMALE
@@ -59,7 +67,7 @@ export const typeDefs = /* GraphQL */ `
     toModifyDate: String
     eventIds: [ID!]
     organisationIds: [ID!]
-    classification: [EventClassification!]
+    classification: [EventClassificationFilter!]
     includeEntryBreaks: Boolean
     includeAttributes: Boolean
     parentIds: [ID!]
