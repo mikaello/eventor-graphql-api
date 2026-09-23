@@ -1,3 +1,5 @@
+import { startEventorFetchTiming } from "./timing.js";
+
 export type QueryValue = string | number | boolean | readonly string[] | null | undefined;
 export type Query = Record<string, QueryValue>;
 
@@ -108,13 +110,18 @@ export class EventorClient {
   }
 
   async #request(url: URL, init: RequestInit): Promise<string> {
-    if (this.#apiKey.trim() === "") throw new EventorApiKeyRequiredError();
-    const headers = new Headers(init.headers);
-    headers.set("ApiKey", this.#apiKey);
-    headers.set("Accept", "application/xml, text/xml;q=0.9");
-    const response = await this.#fetch(url, { ...init, headers });
-    const body = await response.text();
-    if (!response.ok) throw new EventorHttpError(response.status, response.statusText, body);
-    return body;
+    const finishTiming = startEventorFetchTiming();
+    try {
+      if (this.#apiKey.trim() === "") throw new EventorApiKeyRequiredError();
+      const headers = new Headers(init.headers);
+      headers.set("ApiKey", this.#apiKey);
+      headers.set("Accept", "application/xml, text/xml;q=0.9");
+      const response = await this.#fetch(url, { ...init, headers });
+      const body = await response.text();
+      if (!response.ok) throw new EventorHttpError(response.status, response.statusText, body);
+      return body;
+    } finally {
+      finishTiming?.();
+    }
   }
 }

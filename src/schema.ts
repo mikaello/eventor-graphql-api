@@ -36,6 +36,7 @@ import {
 import type { EventorClient, Query, QueryValue } from "./eventor-client.js";
 import type { RequestLoaders } from "./loaders.js";
 import { eventorClassificationToId } from "./rescript-eventor.js";
+import { markInitialEventsResolved, measureInitialEventsFetch } from "./timing.js";
 
 export const typeDefs = /* GraphQL */ `
   scalar JSON
@@ -462,8 +463,10 @@ export const resolvers = {
       { input }: { input?: Record<string, unknown> },
       { client, loaders }: GraphQLContext,
     ) => {
-      const events = parseEvents(await client.get("events", eventsQuery(input)));
+      const xml = await measureInitialEventsFetch(() => client.get("events", eventsQuery(input)));
+      const events = parseEvents(xml);
       events.forEach((event) => loaders.eventsById.prime(event));
+      markInitialEventsResolved();
       return events;
     },
     event: async (

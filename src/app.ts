@@ -7,6 +7,11 @@ import {
 } from "./eventor-client.js";
 import { createRequestLoaders } from "./loaders.js";
 import { resolvers, typeDefs, type GraphQLContext } from "./schema.js";
+import {
+  defaultGraphQLTimingLogger,
+  useGraphQLTiming,
+  type GraphQLTimingLogger,
+} from "./timing.js";
 
 export interface AppOptions {
   baseUrl?: string;
@@ -15,6 +20,7 @@ export interface AppOptions {
   graphqlEndpoint?: string;
   logging?: boolean;
   maxConcurrentGets?: number;
+  timingLogger?: GraphQLTimingLogger | false;
 }
 
 function originalError(error: unknown): unknown {
@@ -35,12 +41,18 @@ function authenticationError(error: unknown, message: string): GraphQLError {
 export function createApp(options: AppOptions = {}) {
   const baseUrl =
     options.baseUrl ?? process.env.EVENTOR_BASE_URL ?? "https://eventor.orientering.no/api";
+  const timingLogger =
+    options.timingLogger === false ||
+    (options.timingLogger === undefined && options.logging === false)
+      ? undefined
+      : (options.timingLogger ?? defaultGraphQLTimingLogger);
 
   return createYoga<GraphQLContext>({
     schema: createSchema({ typeDefs, resolvers }),
     graphqlEndpoint: options.graphqlEndpoint ?? "/api/graphql",
     graphiql: true,
     logging: options.logging ?? true,
+    plugins: timingLogger === undefined ? [] : [useGraphQLTiming(timingLogger)],
     maskedErrors: {
       maskError: (error, message, isDev) => {
         const cause = originalError(error);

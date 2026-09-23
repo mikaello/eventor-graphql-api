@@ -131,3 +131,13 @@ The `api` directory contains Web-standard Vercel functions for `/api/graphql` an
 Vercel uses the Node.js runtime and installs the exact dependency versions in `package-lock.json`.
 
 Configure `EVENTOR_BASE_URL` and optionally `EVENTOR_API_KEY` in the deployment environment.
+
+## Timing logs
+
+Each GraphQL request writes one structured `graphql_timing` log in deployed and default local configurations.
+
+The log records total execution, the initial `events` fetch, the wall-clock child-fetch phase, the number of child fetches, accumulated XML parsing, and result serialization in milliseconds.
+
+Requests without an `events` root field report `null` for the initial fetch and child-fetch phase.
+
+Set `logging: false` or `timingLogger: false` when constructing the app to disable timing logs.
