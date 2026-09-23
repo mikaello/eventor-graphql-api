@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { withRequestTimeout } from "../api/graphql.js";
 import { createApp } from "../src/app.js";
 
 test("serves typed GraphQL data and nested Eventor relationships", async () => {
@@ -192,6 +193,21 @@ test("continues to mask unexpected upstream errors", async () => {
   assert.equal(body.errors?.[0]?.message, "Unexpected error.");
   assert.equal(body.errors?.[0]?.extensions?.code, "INTERNAL_SERVER_ERROR");
   assert.doesNotMatch(body.errors?.[0]?.message ?? "", /Private upstream failure details/);
+});
+
+test("returns a GraphQL error before the deployment timeout", async () => {
+  const response = await withRequestTimeout(new Promise<Response>(() => undefined), 10);
+  const body = (await response.json()) as {
+    errors?: Array<{ message: string; extensions?: { code?: string } }>;
+  };
+
+  assert.equal(response.status, 504);
+  assert.match(response.headers.get("Content-Type") ?? "", /^application\/graphql-response\+json/);
+  assert.equal(
+    body.errors?.[0]?.message,
+    "The request timed out while waiting for Eventor. Please try again; the next attempt may be faster because Eventor responses are cached.",
+  );
+  assert.equal(body.errors?.[0]?.extensions?.code, "GATEWAY_TIMEOUT");
 });
 
 test("traverses event entries, people, starts, and related events in one operation", async () => {
