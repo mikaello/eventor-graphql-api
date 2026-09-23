@@ -1,4 +1,3 @@
-import { useRequestDeadline } from "@whatwg-node/server";
 import { GraphQLError } from "graphql";
 import { createSchema, createYoga, maskError } from "graphql-yoga";
 import {
@@ -16,7 +15,6 @@ export interface AppOptions {
   graphqlEndpoint?: string;
   logging?: boolean;
   maxConcurrentGets?: number;
-  requestTimeoutMs?: number;
 }
 
 function originalError(error: unknown): unknown {
@@ -43,30 +41,6 @@ export function createApp(options: AppOptions = {}) {
     graphqlEndpoint: options.graphqlEndpoint ?? "/api/graphql",
     graphiql: true,
     logging: options.logging ?? true,
-    plugins:
-      options.requestTimeoutMs === undefined
-        ? []
-        : [
-            useRequestDeadline({
-              timeout: options.requestTimeoutMs,
-              response: () =>
-                Response.json(
-                  {
-                    errors: [
-                      {
-                        message:
-                          "The request timed out while waiting for Eventor. Please try again; the next attempt may be faster because Eventor responses are cached.",
-                        extensions: { code: "GATEWAY_TIMEOUT" },
-                      },
-                    ],
-                  },
-                  {
-                    status: 504,
-                    headers: { "Content-Type": "application/graphql-response+json; charset=utf-8" },
-                  },
-                ),
-            }),
-          ],
     maskedErrors: {
       maskError: (error, message, isDev) => {
         const cause = originalError(error);

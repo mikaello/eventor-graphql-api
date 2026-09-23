@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { withRequestTimeout } from "../api/graphql.js";
 import { createApp } from "../src/app.js";
 
 test("serves typed GraphQL data and nested Eventor relationships", async () => {
@@ -195,20 +196,7 @@ test("continues to mask unexpected upstream errors", async () => {
 });
 
 test("returns a GraphQL error before the deployment timeout", async () => {
-  const yoga = createApp({
-    baseUrl: "https://proxy.example/api",
-    fetch: () => new Promise<Response>(() => undefined),
-    logging: false,
-    requestTimeoutMs: 10,
-  });
-  const response = await yoga.fetch("http://localhost/api/graphql", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ApiKey: "12345678901234567890123456789012",
-    },
-    body: JSON.stringify({ query: "{ events { id } }" }),
-  });
+  const response = await withRequestTimeout(new Promise<Response>(() => undefined), 10);
   const body = (await response.json()) as {
     errors?: Array<{ message: string; extensions?: { code?: string } }>;
   };
