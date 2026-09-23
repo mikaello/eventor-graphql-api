@@ -14,6 +14,7 @@
     "check": "npm run typecheck && npm test"
   },
   "dependencies": {
+    "@whatwg-node/server": "0.11.0",
     "@xmldom/xmldom": "0.9.12",
     "fast-xml-parser": "5.11.1",
     "graphql": "17.0.2",

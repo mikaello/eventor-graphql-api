@@ -194,6 +194,34 @@ test("continues to mask unexpected upstream errors", async () => {
   assert.doesNotMatch(body.errors?.[0]?.message ?? "", /Private upstream failure details/);
 });
 
+test("returns a GraphQL error before the deployment timeout", async () => {
+  const yoga = createApp({
+    baseUrl: "https://proxy.example/api",
+    fetch: () => new Promise<Response>(() => undefined),
+    logging: false,
+    requestTimeoutMs: 10,
+  });
+  const response = await yoga.fetch("http://localhost/api/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: "12345678901234567890123456789012",
+    },
+    body: JSON.stringify({ query: "{ events { id } }" }),
+  });
+  const body = (await response.json()) as {
+    errors?: Array<{ message: string; extensions?: { code?: string } }>;
+  };
+
+  assert.equal(response.status, 504);
+  assert.match(response.headers.get("Content-Type") ?? "", /^application\/graphql-response\+json/);
+  assert.equal(
+    body.errors?.[0]?.message,
+    "The request timed out while waiting for Eventor. Please try again; the next attempt may be faster because Eventor responses are cached.",
+  );
+  assert.equal(body.errors?.[0]?.extensions?.code, "GATEWAY_TIMEOUT");
+});
+
 test("traverses event entries, people, starts, and related events in one operation", async () => {
   const urls: URL[] = [];
   const fetch = async (input: string | URL | Request) => {
