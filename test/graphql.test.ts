@@ -101,9 +101,14 @@ test("allows schema introspection without an Eventor API key", async () => {
 });
 
 test("rejects upstream fields without an Eventor API key", async () => {
+  let fetchCalled = false;
   const yoga = createApp({
     baseUrl: "https://proxy.example/api",
-    fetch: async () => new Response(),
+    defaultApiKey: "",
+    fetch: async () => {
+      fetchCalled = true;
+      return new Response();
+    },
     logging: false,
   });
   const response = await yoga.fetch("http://localhost/api/graphql", {
@@ -111,10 +116,82 @@ test("rejects upstream fields without an Eventor API key", async () => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query: "{ events { id } }" }),
   });
-  const body = (await response.json()) as { errors?: Array<{ message: string }> };
+  const body = (await response.json()) as {
+    errors?: Array<{ message: string; extensions?: { code?: string } }>;
+  };
 
   assert.equal(response.status, 200);
-  assert.match(body.errors?.[0]?.message ?? "", /unexpected error|ApiKey/i);
+  assert.equal(body.errors?.[0]?.message, "The ApiKey request header is required.");
+  assert.equal(body.errors?.[0]?.extensions?.code, "UNAUTHENTICATED");
+  assert.equal(fetchCalled, false);
+});
+
+test("returns one safe authentication error for rejected Eventor API keys", async () => {
+  const upstreamErrors = [
+    new Response('{error: "ApiKey header is required and must be 32 alphanumeric characters."}', {
+      status: 401,
+      statusText: "Unauthorized",
+    }),
+    new Response(
+      "403 - Forbidden: Access is denied. You do not have permission to view this page.",
+      { status: 403, statusText: "Forbidden" },
+    ),
+  ];
+
+  for (const upstreamResponse of upstreamErrors) {
+    const yoga = createApp({
+      baseUrl: "https://proxy.example/api",
+      fetch: async () => upstreamResponse.clone(),
+      logging: false,
+    });
+    const response = await yoga.fetch("http://localhost/api/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ApiKey: "invalid-api-key",
+      },
+      body: JSON.stringify({ query: "{ events { id } }" }),
+    });
+    const body = (await response.json()) as {
+      errors?: Array<{ message: string; extensions?: { code?: string } }>;
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      body.errors?.[0]?.message,
+      "The ApiKey request header is invalid or not authorized for this resource.",
+    );
+    assert.equal(body.errors?.[0]?.extensions?.code, "UNAUTHENTICATED");
+    assert.doesNotMatch(body.errors?.[0]?.message ?? "", /32 alphanumeric|Access is denied/i);
+  }
+});
+
+test("continues to mask unexpected upstream errors", async () => {
+  const yoga = createApp({
+    baseUrl: "https://proxy.example/api",
+    fetch: async () =>
+      new Response("Private upstream failure details", {
+        status: 500,
+        statusText: "Internal Server Error",
+      }),
+    logging: false,
+  });
+  const response = await yoga.fetch("http://localhost/api/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: "12345678901234567890123456789012",
+    },
+    body: JSON.stringify({ query: "{ events { id } }" }),
+  });
+  const body = (await response.json()) as {
+    errors?: Array<{ message: string; extensions?: { code?: string } }>;
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(body.errors?.[0]?.message, "Unexpected error.");
+  assert.equal(body.errors?.[0]?.extensions?.code, "INTERNAL_SERVER_ERROR");
+  assert.doesNotMatch(body.errors?.[0]?.message ?? "", /Private upstream failure details/);
 });
 
 test("traverses event entries, people, starts, and related events in one operation", async () => {
