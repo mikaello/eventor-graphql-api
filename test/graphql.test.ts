@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { withRequestTimeout } from "../api/graphql.js";
 import { createApp } from "../src/app.js";
+import type { GraphQLTimingRecord } from "../src/timing.js";
 
 test("serves typed GraphQL data and nested Eventor relationships", async () => {
   const urls: string[] = [];
@@ -376,4 +377,49 @@ test("batches nested entries and competitor counts across parent events", async 
   assert.equal(entriesRequests[0]?.searchParams.get("eventIds"), "7,8");
   assert.equal(countRequests.length, 1);
   assert.equal(countRequests[0]?.searchParams.get("eventIds"), "7,8");
+});
+
+test("records GraphQL execution phases in one structured timing log", async () => {
+  const records: GraphQLTimingRecord[] = [];
+  const yoga = createApp({
+    baseUrl: "https://proxy.example/api",
+    fetch: async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      if (url.pathname.endsWith("/events")) {
+        return new Response(`
+          <EventList><Event><EventId>7</EventId><Name>Forest race</Name>
+          <Organiser><OrganisationId>273</OrganisationId></Organiser></Event></EventList>
+        `);
+      }
+      if (url.pathname.endsWith("/organisation/273")) {
+        return new Response(
+          "<Organisation><OrganisationId>273</OrganisationId><Name>Example OK</Name></Organisation>",
+        );
+      }
+      return new Response("<Error>Unexpected URL</Error>", { status: 404 });
+    },
+    logging: false,
+    timingLogger: (record) => records.push(record),
+  });
+
+  const response = await yoga.fetch("http://localhost/api/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ApiKey: "12345678901234567890123456789012",
+    },
+    body: JSON.stringify({ query: "{ events { id organisers { id } } }" }),
+  });
+  const body = (await response.json()) as { data?: unknown; errors?: unknown[] };
+
+  assert.equal(body.errors, undefined);
+  assert.equal(records.length, 1);
+  const record = records[0];
+  assert.equal(record?.type, "graphql_timing");
+  assert.ok((record?.totalExecutionMs ?? -1) >= 0);
+  assert.ok((record?.initialEventsFetchMs ?? -1) >= 0);
+  assert.ok((record?.childFetchPhaseMs ?? -1) >= 0);
+  assert.equal(record?.childFetchCount, 1);
+  assert.ok((record?.xmlParsingMs ?? -1) >= 0);
+  assert.ok((record?.serializationMs ?? -1) >= 0);
 });

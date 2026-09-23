@@ -1,4 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
+import { measureXmlParsing } from "./timing.js";
 
 export type XmlValue = string | XmlRecord | XmlValue[];
 export type XmlRecord = { [key: string]: XmlValue | undefined };
@@ -14,7 +15,7 @@ const parser = new XMLParser({
 });
 
 export function parseXml(xml: string): XmlRecord {
-  const parsed: unknown = parser.parse(xml);
+  const parsed: unknown = measureXmlParsing(() => parser.parse(xml));
   if (!isRecord(parsed)) {
     throw new Error("Eventor returned an invalid XML document");
   }

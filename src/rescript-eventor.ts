@@ -24,6 +24,7 @@ import { parse as parsePersons } from "rescript-eventor/src/NativePerson.res.mjs
 import { parse as parsePersonStarts } from "rescript-eventor/src/NativeStartList.res.mjs";
 import { parseFull as parseEventStarts } from "rescript-eventor/src/NativeStartList.res.mjs";
 import { parse as parseResults } from "rescript-eventor/src/NativeResultList.res.mjs";
+import { measureXmlParsing } from "./timing.js";
 
 if (!("DOMParser" in globalThis)) {
   Object.defineProperty(globalThis, "DOMParser", {
@@ -47,13 +48,22 @@ export function eventorClassificationToId(classification: EventClassificationFil
 }
 
 export const eventorParsers = {
-  competitorCounts: (xml: string): NativeCompetitorCount[] => unwrap(parseCompetitorCounts(xml)),
-  documents: (xml: string): NativeDocument[] => unwrap(parseDocuments(xml)),
-  entryFees: (xml: string): NativeEntryFee[] => unwrap(parseEntryFees(xml)),
-  eventClasses: (xml: string): NativeEventClass[] => unwrap(parseEventClasses(xml)),
-  organisations: (xml: string): NativeOrganisation[] => unwrap(parseOrganisations(xml)),
-  persons: (xml: string): NativePerson[] => unwrap(parsePersons(xml)),
-  personStarts: (xml: string): NativeStartList[] => unwrap(parsePersonStarts(xml)),
-  eventStarts: (xml: string): NativeFullStartList => unwrap(parseEventStarts(xml)),
-  results: (xml: string): NativeResultList[] => unwrap(parseResults(xml)),
+  competitorCounts: (xml: string): NativeCompetitorCount[] =>
+    measureXmlParsing(() => unwrap(parseCompetitorCounts(xml))),
+  documents: (xml: string): NativeDocument[] =>
+    measureXmlParsing(() => unwrap(parseDocuments(xml))),
+  entryFees: (xml: string): NativeEntryFee[] =>
+    measureXmlParsing(() => unwrap(parseEntryFees(xml))),
+  eventClasses: (xml: string): NativeEventClass[] =>
+    measureXmlParsing(() => unwrap(parseEventClasses(xml))),
+  organisations: (xml: string): NativeOrganisation[] =>
+    measureXmlParsing(() => unwrap(parseOrganisations(xml))),
+  persons: (xml: string): NativePerson[] =>
+    measureXmlParsing(() => unwrap(parsePersons(xml))),
+  personStarts: (xml: string): NativeStartList[] =>
+    measureXmlParsing(() => unwrap(parsePersonStarts(xml))),
+  eventStarts: (xml: string): NativeFullStartList =>
+    measureXmlParsing(() => unwrap(parseEventStarts(xml))),
+  results: (xml: string): NativeResultList[] =>
+    measureXmlParsing(() => unwrap(parseResults(xml))),
 };
